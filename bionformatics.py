@@ -15,61 +15,12 @@ one for each input sequences, that realise the matches/mismatches in the alignme
 This part will be marked automatically, so please make sure that you get both the input and the output in the right
 format.
 
+// TODO: For second part & introducing new scoring rules -> 'Gap Penalty (special penalty for consecutive “-”)'
+//    https://www.site.uottawa.ca/~lucia/courses/5126-10/lecturenotes/03-05SequenceSimilarity.pdf (slide 31+)
+
 """
 
-
-def matrix_setup(scoring_matrix):
-    """
-    Given the scoring matrix, create the backtrack matrix & init the vals in both
-    :param scoring_matrix: n x m array
-    :return: n x m scoring matrix & n x m backtrack matrix (both w/ first row & col initialized)
-    """
-    # Create backtrack matrix
-    backtrack_matrix = [[None for _ in range(len(scoring_matrix[0]))] for _ in range(len(scoring_matrix))]
-
-    # Init first row & cols of matrices
-    scoring_matrix[0] = [0 for _ in range(len(scoring_matrix[0]))]
-    backtrack_matrix[0] = ['L' for _ in range(len(backtrack_matrix[0]))]
-    for i in range(len(scoring_matrix)):
-        scoring_matrix[i][0] = 0
-        backtrack_matrix[i][0] = 'U'
-
-    return scoring_matrix, backtrack_matrix
-
-
-def backtrack(backtrack_matrix, max_indexes, seq1, seq2):
-    """
-    Iterate over max_indexes and find all best local alignments
-    :param backtrack_matrix: backtrack matrix
-    :param max_indexes: 2d arr of y, x coors of starting points for max alignments
-    :param seq1: sequence str
-    :param seq2: sequence str
-    :return: 2d arr of all alignments
-    """
-    # Find all max alignments
-    alginments = []
-    for index in max_indexes:
-        # Start at max index & backtrack
-        out = []
-        x = index[1]
-        y = index[0]
-        while backtrack_matrix[y][x] is not None:
-            if backtrack_matrix[y][x] == 'D':
-                # Match both chars
-                out.append([seq1[x], seq2[y]])
-                x -= 1
-                y -= 1
-            elif backtrack_matrix[y][x] == 'L':
-                # Match seq1 w/ gap
-                out.append([seq1[x], '-'])
-                x -= 1
-            else:
-                # Match seq2 w/ gap
-                out.append(['-', seq2[y]])
-                y -= 1
-        alginments.append(reversed(out))
-    # Return all alignments
-    return alginments
+import helper_functions
 
 
 def part_one(p, scoring_matrix, seq1, seq2):
@@ -84,7 +35,7 @@ def part_one(p, scoring_matrix, seq1, seq2):
     :return: 2d array of each chars alignment
     """
     # Setup both backtrack and scoring matrix
-    scoring_matrix, backtrack_matrix = matrix_setup(scoring_matrix)
+    scoring_matrix, backtrack_matrix = helper_functions.matrix_setup(scoring_matrix)
 
     # Scoring function
     def score(a, b):
@@ -128,59 +79,101 @@ def part_one(p, scoring_matrix, seq1, seq2):
                 max_indexes.append([y, x])
 
     # Find all max alignments
-    return backtrack(backtrack_matrix, max_indexes, seq1, seq2)
+    return helper_functions.backtrack(backtrack_matrix, max_indexes, seq1, seq2)
 
 
-def alignment_pretty_print(alignment):
+def part_two(p, scoring_matrix, seq1, seq2):
     """
-    Given alignment, print in format:
-        G C A T
-        |   | |
-        G T A T
-    :param alignment: 2d arr of matches in alignment
-    :return: Nothing
+    2) Dynamic programming that runs in linear space [up to 65 marks].
+     - for local alignment
+     Implementation of Hirschberg's algorithm: https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm
+    :param p: string of all unique letters in seq1 & 2
+    :param scoring_matrix: len(seq1) + 1 x len(seq2) + 1 matrix (+1 for the added - @ start of string)
+    :param seq1: sequence of chars, str
+    :param seq2: sequence of chars, str
+    :return: 2d array of each chars alignment
     """
-    # Setup vars
-    s1 = []
-    hyphens = []
-    s2 = []
-    for item in alignment:
-        s1.append(item[0])
-        s2.append(item[1])
-        if item[0] == item[1]:
-            hyphens.append("|")
+    # Setup both backtrack and scoring matrix
+    scoring_matrix, backtrack_matrix = helper_functions.matrix_setup(scoring_matrix)
+
+    # Scoring function
+    def score(a, b):
+        # a & b match
+        if a == b:
+            return 3
+        # Else
+        return -3
+
+    # Penalty for matching with gap
+    gap_penalty = -2
+
+    # Max score tracker
+    max_score = -float('inf')
+    max_indexes = [[-1, -1]]  # can have >1 greatest local alignment
+
+    # NWScore method (returns last line of Needleman-Wunsch score matrix, Score(i, j))
+    def NWScore(X, Y):
+
+        # TODO: Score(0,0) = 0 // 2*length(Y) array - what does this mean???
+        score_matrix = [[0 for _ in range(len(Y))] for _ in range(len(X))]
+        raise NotImplementedError
+
+        # TODO: See https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm for rest of implementation
+
+
+
+    # Hirschberg algorithm (ref. https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
+    def Hirschberg(X, Y):
+        Z = ""
+        W = ""
+        # Empty X
+        if len(X) == 0:
+            # Add -'s to remaining alignment s.t. valid
+            for i in range(1, len(Y)):
+                Z += '-'
+                W += Y[i]
+        # Empty Y
+        elif len(Y) == 0:
+            # Add -'s to remaining alignment s.t. valid
+            for i in range(len(X)):
+                Z += X[i]
+                W += '-'
+        elif len(X) == 1 or len(Y) == 1:
+            # TODO: NeedlemanWunsh -> think can just use Smith-Waterson from above
+            # Z, W = NeedlemanWunsh(X, Y)
+            raise NotImplementedError
         else:
-            hyphens.append(" ")
-    # Print
-    print(" ".join(s1))
-    print(" ".join(hyphens))
-    print(" ".join(s2))
+            x_len = len(X)
+            x_mid = x_len // 2
+            y_len = len(Y)
 
+            score_l = NWScore(X[:x_mid], Y)  # This should be a 1d arr
+            score_r = NWScore(reversed(X[x_mid:]), reversed(Y))  # This should be a 1d arr
+            # TODO: argmax of score_l + reversed(score_r) i.e. get max index
+            # y_mid = arg_max(score_l + reversed(score_r))
 
-def setup(seq1, seq2):
-    # Generate set of all unique chars
-    p = str(set(seq1 + seq2))
-    # Add empty char onto front of strings
-    seq1 = "-" + seq1
-    seq2 = "-" + seq2
-    # Generate scoring matrix
-    scoring_matrix = [[None for x in range(len(seq1))] for y in range(len(seq2))]
-    # Return all
-    return seq1, seq2, scoring_matrix, p
+            Z, W = Hirschberg(X[:x_mid], Y[:y_mid]) + Hirschberg(X[x_mid:], Y[y_mid:])
+
+        return Z, W
+
+    return []
 
 
 if __name__ == "__main__":
     # Debug input - example input from wiki (https://en.wikipedia.org/wiki/Smith–Waterman_algorithm)
-    sequence1 = "TGTTACGG"  # seq1 = x
-    sequence2 = "GGTTGACTA"  # seq2 = y
+    sequence1 = "AGTACGCA"  # seq1 = x
+    sequence2 = "TATGC"  # seq2 = y
 
     # Setup
-    seq1, seq2, scoring_matrix, p = setup(sequence1, sequence2)
+    seq1, seq2, scoring_matrix, p = helper_functions.setup(sequence1, sequence2)
 
-    # Part 1 - O(n^2) dynamic prog.
-    results = part_one(p, scoring_matrix, seq1, seq2)
+    # Part 1 - O(n^2) dynamic prog. (time + space)
+    # results = part_one(p, scoring_matrix, seq1, seq2)
+    # Part 2 - O(n) dynamic prog. (space)
+    results = part_two(p, scoring_matrix, seq1, seq2)
+    # Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
 
     # Output - print results
     print("Best Local Alignments:")
     for item in results:
-        alignment_pretty_print(item)
+        helper_functions.alignment_pretty_print(item)
