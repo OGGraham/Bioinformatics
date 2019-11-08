@@ -23,66 +23,70 @@ format.
 import helper_functions
 
 
-def part_one(p, scoring_matrix, seq1, seq2):
+class SmithWaterman:
     """
     1) Basic dynamic programming that runs in quadratic time and space [up to 50 marks].
      - for local alignment
     Implementation of the Smith-Waterman algorithm: https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm
-    :param p: string of all unique letters in seq1 & 2
-    :param scoring_matrix: len(seq1) + 1 x len(seq2) + 1 matrix (+1 for the added - @ start of string)
     :param seq1: sequence of chars, str
     :param seq2: sequence of chars, str
     :return: 2d array of each chars alignment
     """
-    # Setup both backtrack and scoring matrix
-    scoring_matrix, backtrack_matrix = helper_functions.matrix_setup(scoring_matrix)
+    def __init__(self, seq1, seq2):
+
+        # Setup
+        self.seq1, self.seq2, self.scoring_matrix, self.p = helper_functions.setup(seq1, seq2)
+
+        # Setup both backtrack and scoring matrix
+        self.scoring_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.scoring_matrix, local=True)
+
+        # Penalty for matching with gap
+        self.gap_penalty = -2
 
     # Scoring function
-    def score(a, b):
+    def score(self, a, b):
         # a & b match
         if a == b:
             return 3
         # Else
         return -3
-    # Penalty for matching with gap
-    gap_penalty = -2
 
-    # Max score tracker
-    max_score = -float('inf')
-    max_indexes = [[-1, -1]]  # can have >1 greatest local alignment
+    # Align 2 sequences
+    def align(self):
+        # Max score tracker
+        max_score = -float('inf')
+        max_index = []  # can have >1 greatest local alignment
 
-    # Iterate over scoring matrix and generate scoring (start at 1,1 and work from there) (O(n^2) method)
-    for y in range(1, len(scoring_matrix)):  # y -> seq2
-        for x in range(1, len(scoring_matrix[0])):  # x -> seq1
-            vals = [
-                scoring_matrix[y-1][x-1] + score(seq2[y], seq1[x]),  # diagonal
-                scoring_matrix[y-1][x] + gap_penalty,  # up
-                scoring_matrix[y][x - 1] + gap_penalty,  # left
-                0]  # 0 for local alignment
-            # Update scoring matrix
-            scoring_matrix[y][x] = max(vals)
-            # Get index of max
-            index = vals.index(max(vals))
-            # Update backtrack matrix
-            if index == 0:
-                backtrack_matrix[y][x] = 'D'
-            elif index == 1:
-                backtrack_matrix[y][x] = 'U'
-            elif index == 2:
-                backtrack_matrix[y][x] = 'L'
-            # Check if new greatest score seen
-            if max(vals) > max_score:
-                max_score = max(vals)
-                max_indexes = [[y, x]]
-            # Check if found another alignment with same max score
-            elif max(vals) == max_score:
-                max_indexes.append([y, x])
+        # Iterate over scoring matrix and generate scoring (start at 1,1 and work from there) (O(n^2) method)
+        for y in range(1, len(self.seq2)+1):  # y -> seq2
+            for x in range(1, len(self.seq1)+1):  # x -> seq1
+                vals = [
+                    # seq[y-1], seq[x-1] as matrix has empty row & col at start
+                    self.scoring_matrix[y-1][x-1] + self.score(self.seq2[y-1], self.seq1[x-1]),  # diagonal
+                    self.scoring_matrix[y-1][x] + self.gap_penalty,  # up
+                    self.scoring_matrix[y][x - 1] + self.gap_penalty,  # left
+                    0]  # 0 for local alignment
+                # Update scoring matrix
+                self.scoring_matrix[y][x] = max(vals)
+                # Get index of max
+                index = vals.index(max(vals))
+                # Update backtrack matrix
+                if index == 0:
+                    self.backtrack_matrix[y][x] = 'D'
+                elif index == 1:
+                    self.backtrack_matrix[y][x] = 'U'
+                elif index == 2:
+                    self.backtrack_matrix[y][x] = 'L'
+                # Check if new greatest score seen
+                if max(vals) > max_score:
+                    max_score = max(vals)
+                    max_index = [y, x]
 
-    # Find all max alignments
-    return helper_functions.backtrack(backtrack_matrix, max_indexes, seq1, seq2)
+        # Find all max alignments
+        return helper_functions.backtrack(self.backtrack_matrix, max_index, self.seq1, self.seq2)
 
 
-def part_two(p, scoring_matrix, seq1, seq2):
+class Hirschberg():
     """
     2) Dynamic programming that runs in linear space [up to 65 marks].
      - for local alignment
@@ -93,87 +97,161 @@ def part_two(p, scoring_matrix, seq1, seq2):
     :param seq2: sequence of chars, str
     :return: 2d array of each chars alignment
     """
-    # Setup both backtrack and scoring matrix
-    scoring_matrix, backtrack_matrix = helper_functions.matrix_setup(scoring_matrix)
+    def __init__(self, seq1, seq2):
 
-    # Scoring function
-    def score(a, b):
+        # Setup
+        self.seq1, self.seq2, self.scoring_matrix, self.p = helper_functions.setup(seq1, seq2)
+
+        # Setup both backtrack and scoring matrix
+        self.scoring_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.scoring_matrix, local=True)
+
+        # Penalty for matching with gap
+        self.gap_penalty = -2
+
+
+    # Substitution scoring function
+    def substitute(self, a, b):
         # a & b match
         if a == b:
-            return 3
+            return 2
         # Else
-        return -3
+        return -1
 
-    # Penalty for matching with gap
-    gap_penalty = -2
+    # Deletion scoring function
+    def delete(self):
+        return -2
 
-    # Max score tracker
-    max_score = -float('inf')
-    max_indexes = [[-1, -1]]  # can have >1 greatest local alignment
+    # Insert scoring function
+    def insert(self):
+        return -2
 
-    # NWScore method (returns last line of Needleman-Wunsch score matrix, Score(i, j))
-    def NWScore(X, Y):
+    # Last Row method (returns last row of scoring matrix - linear space complexity)
+    def last_row(self, seq1, seq2):
 
-        # TODO: Score(0,0) = 0 // 2*length(Y) array - what does this mean???
-        score_matrix = [[0 for _ in range(len(Y))] for _ in range(len(X))]
-        raise NotImplementedError
+    # FIXME: flipping params gives correct output?
+    # def last_row(self, seq2, seq1):
 
-        # TODO: See https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm for rest of implementation
+        # FIXME: need to include seq1/2 + 1 to account for extra entry in matrix
 
+        # seq1 = x, seq2 = y
 
+        print("NW Score on: {0} | {1}".format(seq1, seq2))
+
+        # Init rows to 0s (as local alignment)
+        prev_row = [0 for _ in range(len(seq1) + 1)]
+        current_row = [0 for _ in range(len(seq1) + 1)]
+
+        for j in range(1, len(seq1) + 1):
+            prev_row[j] = prev_row[j-1] + self.insert()
+
+        # Loop over seq2 and calc vals
+        for i in range(1, len(seq2) + 1):
+            current_row[0] = self.delete() + prev_row[0]
+            for j in range(1, len(seq1) + 1):
+                score_sub = prev_row[j - 1] + self.substitute(seq2[i - 1], seq1[j - 1])
+                score_del = prev_row[j] + self.delete()
+                score_ins = current_row[j - 1] + self.insert()
+                current_row[j] = max(score_sub, score_del, score_ins)
+
+            prev_row = current_row
+            current_row = [0 for _ in range(len(seq1) + 1)]
+
+            print(prev_row)
+
+        return prev_row
+
+    # Calls recursive function with vals and returs
+    def run(self):
+        return self.align(self.seq1, self.seq2)
 
     # Hirschberg algorithm (ref. https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
-    def Hirschberg(X, Y):
-        Z = ""
-        W = ""
-        # Empty X
-        if len(X) == 0:
+    def align(self, seq1, seq2):
+        out1, out2 = [], []
+
+        # Empty seq1
+        if len(seq1) == 0:
             # Add -'s to remaining alignment s.t. valid
-            for i in range(1, len(Y)):
-                Z += '-'
-                W += Y[i]
-        # Empty Y
-        elif len(Y) == 0:
+            for i in range(len(seq2)):
+                out1.append('-')
+                out2.append(seq2[i])
+
+        # Empty seq2
+        elif len(seq2) == 0:
             # Add -'s to remaining alignment s.t. valid
-            for i in range(len(X)):
-                Z += X[i]
-                W += '-'
-        elif len(X) == 1 or len(Y) == 1:
-            # TODO: NeedlemanWunsh -> think can just use Smith-Waterson from above
-            # Z, W = NeedlemanWunsh(X, Y)
-            raise NotImplementedError
+            for i in range(len(seq1)):
+                out2.append('-')
+                out1.append(seq1[i])
+
+        elif len(seq1) == 1 or len(seq2) == 1:
+            SW = SmithWaterman(seq1, seq2)
+            out1, out2 = SW.align()
+
         else:
-            x_len = len(X)
-            x_mid = x_len // 2
-            y_len = len(Y)
+            # FIXME: check which way round params go and what seq is where
 
-            score_l = NWScore(X[:x_mid], Y)  # This should be a 1d arr
-            score_r = NWScore(reversed(X[x_mid:]), reversed(Y))  # This should be a 1d arr
-            # TODO: argmax of score_l + reversed(score_r) i.e. get max index
-            # y_mid = arg_max(score_l + reversed(score_r))
+            seq2_mid = len(seq2) // 2
 
-            Z, W = Hirschberg(X[:x_mid], Y[:y_mid]) + Hirschberg(X[x_mid:], Y[y_mid:])
+            r_left = self.last_row(seq2[:seq2_mid], seq1)
+            print(r_left)
+            r_right = self.last_row(seq2[seq2_mid:][::-1], seq1[::-1])
+            r_right.reverse()
+            print(r_right)
 
-        return Z, W
+            row = [l + r for l, r in zip(r_left, r_right)]
+            maxidx, maxval = max(enumerate(row), key=lambda a: a[1])
+            print(row)
 
-    return []
+            seq1_mid = maxidx
+
+            aligned_1_left, aligned_2_left = self.align(seq1[:seq1_mid], seq2[:seq2_mid])
+            aligned_1_right, aligned_2_right = self.align(seq1[seq1_mid:], seq2[seq2_mid:])
+
+            out1 = aligned_1_left + aligned_1_right
+            out2 = aligned_2_left + aligned_2_right
+
+        return out1, out2
 
 
 if __name__ == "__main__":
-    # Debug input - example input from wiki (https://en.wikipedia.org/wiki/Smith–Waterman_algorithm)
-    sequence1 = "AGTACGCA"  # seq1 = x
-    sequence2 = "TATGC"  # seq2 = y
+    # Debug input 1 - example input from wiki (https://en.wikipedia.org/wiki/Smith–Waterman_algorithm)
+    # sequence1 = "TGTTACGG"  # seq1 = x
+    # sequence2 = "GGTTGACTA"  # seq2 = y
+    # Expected output: GG, TT, TT, -G, AA, CC
 
-    # Setup
-    seq1, seq2, scoring_matrix, p = helper_functions.setup(sequence1, sequence2)
+    # Debug input 2 - example from wiki (https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
+    sequence1 = "TATGC"
+    sequence2 = "AGTACGCA"
+
+    sequence1 = "TGTCC"
+    sequence2 = "ACTGACCT"
+
+    print("Starting:")
+    print("Seq 1 - {0} ".format(sequence1))
+    print("Seq 2 - {0}".format(sequence2))
+    print("------------")
+
+    # Expected output: A-, G-, TT, AA, CT, GG, CC, A-
+    # (w/ scoring del/ins = -2, sub(x,y) = +2 if match, else -1
+    # exp1 = ['-', '-', 'T', 'A', 'T', 'G', 'C', '-']
+    # exp2 = ['A', 'G', 'T', 'A', 'C', 'G', 'C', 'A']
+    # print("Expected:")
+    # print(helper_functions.alignment_pretty_print(exp1, exp2))
+
 
     # Part 1 - O(n^2) dynamic prog. (time + space)
     # results = part_one(p, scoring_matrix, seq1, seq2)
+    # SW = SmithWaterman(sequence1, sequence2)
+    # out1, out2 = SW.align()
+
+
     # Part 2 - O(n) dynamic prog. (space)
-    results = part_two(p, scoring_matrix, seq1, seq2)
-    # Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
+    HB = Hirschberg(sequence1, sequence2)
+    out1, out2 = HB.run()
+
+    #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
 
     # Output - print results
-    print("Best Local Alignments:")
-    for item in results:
-        helper_functions.alignment_pretty_print(item)
+    print("------------")
+    print("Best Local Alignment:")
+    helper_functions.alignment_pretty_print(out1, out2)
+
