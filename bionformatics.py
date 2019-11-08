@@ -138,23 +138,23 @@ class Hirschberg():
         print("NW Score on: {0} | {1}".format(seq1, seq2))
 
         # Init rows to 0s (as local alignment)
-        prev_row = [0 for _ in range(len(seq1) + 1)]
-        current_row = [0 for _ in range(len(seq1) + 1)]
+        prev_row = [0 for _ in range(len(seq2) + 1)]
+        current_row = [0 for _ in range(len(seq2) + 1)]
 
-        for j in range(1, len(seq1) + 1):
+        for j in range(1, len(seq2) + 1):
             prev_row[j] = prev_row[j-1] + self.insert()
 
         # Loop over seq2 and calc vals
-        for i in range(1, len(seq2) + 1):
+        for i in range(1, len(seq1) + 1):
             current_row[0] = self.delete() + prev_row[0]
-            for j in range(1, len(seq1) + 1):
-                score_sub = prev_row[j - 1] + self.substitute(seq2[i - 1], seq1[j - 1])
+            for j in range(1, len(seq2) + 1):
+                score_sub = prev_row[j - 1] + self.substitute(seq1[i - 1], seq2[j - 1])
                 score_del = prev_row[j] + self.delete()
                 score_ins = current_row[j - 1] + self.insert()
                 current_row[j] = max(score_sub, score_del, score_ins)
 
             prev_row = current_row
-            current_row = [0 for _ in range(len(seq1) + 1)]
+            current_row = [0 for _ in range(len(seq2) + 1)]
 
             print(prev_row)
 
@@ -222,8 +222,8 @@ if __name__ == "__main__":
     sequence1 = "TATGC"
     sequence2 = "AGTACGCA"
 
-    sequence1 = "TGTCC"
-    sequence2 = "ACTGACCT"
+    # sequence1 = "TGTCC"
+    # sequence2 = "ACTGACCT"
 
     print("Starting:")
     print("Seq 1 - {0} ".format(sequence1))
