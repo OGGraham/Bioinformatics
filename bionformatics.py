@@ -128,13 +128,6 @@ class Hirschberg():
     # Last Row method (returns last row of scoring matrix - linear space complexity)
     def last_row(self, seq1, seq2):
 
-    # FIXME: flipping params gives correct output?
-    # def last_row(self, seq2, seq1):
-
-        # FIXME: need to include seq1/2 + 1 to account for extra entry in matrix
-
-        # seq1 = x, seq2 = y
-
         print("NW Score on: {0} | {1}".format(seq1, seq2))
 
         # Init rows to 0s (as local alignment)
@@ -214,13 +207,13 @@ class Hirschberg():
 
 if __name__ == "__main__":
     # Debug input 1 - example input from wiki (https://en.wikipedia.org/wiki/Smith–Waterman_algorithm)
-    # sequence1 = "TGTTACGG"  # seq1 = x
-    # sequence2 = "GGTTGACTA"  # seq2 = y
+    sequence1 = "TGTTACGG"  # seq1 = x
+    sequence2 = "GGTTGACTA"  # seq2 = y
     # Expected output: GG, TT, TT, -G, AA, CC
 
     # Debug input 2 - example from wiki (https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
-    sequence1 = "TATGC"
-    sequence2 = "AGTACGCA"
+    # sequence1 = "TATGC"
+    # sequence2 = "AGTACGCA"
 
     # sequence1 = "TGTCC"
     # sequence2 = "ACTGACCT"
