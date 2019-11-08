@@ -108,7 +108,6 @@ class Hirschberg():
         # Penalty for matching with gap
         self.gap_penalty = -2
 
-
     # Substitution scoring function
     def substitute(self, a, b):
         # a & b match
@@ -175,30 +174,36 @@ class Hirschberg():
                 out2.append('-')
                 out1.append(seq1[i])
 
+        # Apply SW for optimal local alignment
         elif len(seq1) == 1 or len(seq2) == 1:
             SW = SmithWaterman(seq1, seq2)
             out1, out2 = SW.align()
 
         else:
-            # FIXME: check which way round params go and what seq is where
-
+            # Get midpoint of Seq2
             seq2_mid = len(seq2) // 2
 
+            # Get scoring of lhs (in linear space)
             r_left = self.last_row(seq2[:seq2_mid], seq1)
             print(r_left)
+            # Get scoring of rhs (in linear space) [reversed]
             r_right = self.last_row(seq2[seq2_mid:][::-1], seq1[::-1])
             r_right.reverse()
             print(r_right)
 
+            # Sum values and find argmax
             row = [l + r for l, r in zip(r_left, r_right)]
             maxidx, maxval = max(enumerate(row), key=lambda a: a[1])
             print(row)
 
+            # Partition seq1 at argmax
             seq1_mid = maxidx
 
+            # Recursively call align on each half
             aligned_1_left, aligned_2_left = self.align(seq1[:seq1_mid], seq2[:seq2_mid])
             aligned_1_right, aligned_2_right = self.align(seq1[seq1_mid:], seq2[seq2_mid:])
 
+            # Add results of recursive calls to  out
             out1 = aligned_1_left + aligned_1_right
             out2 = aligned_2_left + aligned_2_right
 
