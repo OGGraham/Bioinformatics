@@ -57,9 +57,6 @@ def backtrack(backtrack_matrix, index, seq1, seq2):
     x = index[1]
     y = index[0]
 
-    for row in backtrack_matrix:
-        print(row)
-
     # NB: seq1[x-1] & seq2[y-1] as backtrack & scoring matrix len = len(seq) + 1 (empty @ beginning)
     while backtrack_matrix[y][x] is not None and x >= 0 and y >= 0:
         if backtrack_matrix[y][x] == 'D':

@@ -141,11 +141,13 @@ class NeedlemanWunsch():
                 elif index == 2:
                     self.backtrack_matrix[y][x] = 'L'
 
-
         # Find all max alignments
         return helper_functions.backtrack(self.backtrack_matrix, max_index, self.seq1, self.seq2)
 
 
+# TODO: This now returns the best GLOBAL alignment (in linear space)
+# TODO: need to do a forward pass to find the min/max s.t. can compute LOCAL alginment
+# TODO: and then backwards to find the min
 class Hirschberg():
     """
     2) Dynamic programming that runs in linear space [up to 65 marks].
@@ -167,55 +169,72 @@ class Hirschberg():
         self.scoring_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.scoring_matrix, local=True,
                                                                                    gap_penalty=self.gap_penalty)
 
-        helper_functions.matrix_pretty_print(self.backtrack_matrix, self.seq1, self.seq2)
-
     # Substitution scoring function
     def substitute(self, a, b):
         # a & b match
         if a == b:
             return 2
-        # Else
+        # mismatch
         return -1
 
     # Deletion scoring function
     def delete(self):
-        return -2
+        return self.gap_penalty
 
     # Insert scoring function
     def insert(self):
-        return -2
+        return self.gap_penalty
 
     # Last Row method (returns last row of scoring matrix - linear space complexity)
     def last_row(self, seq1, seq2):
 
         # print("Last Row Score on: {0} | {1}".format(seq1, seq2))
 
+        max_val, max_index = -1, [1, 1]
+
         # Init rows to 0s (as local alignment)
         prev_row = [0 for _ in range(len(seq2) + 1)]
         current_row = [0 for _ in range(len(seq2) + 1)]
 
         for j in range(1, len(seq2) + 1):
-            prev_row[j] = prev_row[j-1] + self.insert()
+            prev_row[j] = max(0, prev_row[j-1] + self.insert())
 
         # Loop over seq2 and calc vals
         for i in range(1, len(seq1) + 1):
-            current_row[0] = self.delete() + prev_row[0]
+            current_row[0] = max(0, self.delete() + prev_row[0])
             for j in range(1, len(seq2) + 1):
                 score_sub = prev_row[j - 1] + self.substitute(seq1[i - 1], seq2[j - 1])
                 score_del = prev_row[j] + self.delete()
                 score_ins = current_row[j - 1] + self.insert()
-                current_row[j] = max(score_sub, score_del, score_ins)
+                # Local alignment -> max(vals, 0)
+                current_row[j] = max(0, score_sub, score_del, score_ins)
+
+                # Update max_val / index if score > max
+                if current_row[j] > max_val:
+                    max_val = current_row[j]
+                    max_index = [j, i]  # y, x
 
             prev_row = current_row
             current_row = [0 for _ in range(len(seq2) + 1)]
 
-            # print(prev_row)
+            print(prev_row)
 
-        return prev_row
+        return prev_row, max_val, max_index
 
     # Calls recursive function with vals and returs
     def run(self):
-        return self.align(self.seq1, self.seq2)
+        # Get max index from forward pass
+        _, max_val, max_index = self.last_row(self.seq1, self.seq2)
+
+        # Get min index from backward pass
+        _, _, min_index = self.last_row(self.seq1[::-1], self.seq2[::-1])
+
+        # Subtract lengths from min index (s.t. actual start position)
+        min_index[1] = len(self.seq1) - min_index[1]
+        min_index[0] = len(self.seq2) - min_index[0]
+
+        # Get local alignment
+        return self.align(self.seq1[min_index[1]:max_index[1]], self.seq2[min_index[0]:max_index[0]])
 
     # Hirschberg algorithm (ref. https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
     def align(self, seq1, seq2):
@@ -245,10 +264,10 @@ class Hirschberg():
             seq2_mid = len(seq2) // 2
 
             # Get scoring of lhs (in linear space)
-            r_left = self.last_row(seq2[:seq2_mid], seq1)
+            r_left, _, _ = self.last_row(seq2[:seq2_mid], seq1)
             # print(r_left)
             # Get scoring of rhs (in linear space) [reversed]
-            r_right = self.last_row(seq2[seq2_mid:][::-1], seq1[::-1])
+            r_right, _, _ = self.last_row(seq2[seq2_mid:][::-1], seq1[::-1])
             r_right.reverse()
             # print(r_right)
 
@@ -268,9 +287,8 @@ class Hirschberg():
             out1 = aligned_1_left + aligned_1_right
             out2 = aligned_2_left + aligned_2_right
 
-
-        print("IN:", seq1, seq2)
-        print("OUT:", "".join(out1), "".join(out2))
+        # print("IN:", seq1, seq2)
+        # print("OUT:", "".join(out1), "".join(out2))
 
         return out1, out2
 
@@ -302,17 +320,13 @@ class FASTA():
 
 if __name__ == "__main__":
     # Debug input 1 - example input from wiki (https://en.wikipedia.org/wiki/Smith–Waterman_algorithm)
-    # sequence1 = "TGTTACGG"  # seq1 = x
-    # sequence2 = "GGTTGACTA"  # seq2 = y
+    sequence1 = "TGTTACGG"  # seq1 = x
+    sequence2 = "GGTTGACTA"  # seq2 = y
     # Expected output: GG, TT, TT, -G, AA, CC
 
     # Debug input 2 - example from wiki (https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
-    sequence1 = "TATGC"
-    sequence2 = "AGTACGCA"
-
-    # sequence1 = "TGTCC"
-    # sequence2 = "ACTGACCT"
-
+    # sequence1 = "TATGC"
+    # sequence2 = "AGTACGCA"
 
     print("Starting:")
     print("Seq 1 - {0} ".format(sequence1))
@@ -330,12 +344,12 @@ if __name__ == "__main__":
     # results = part_one(p, scoring_matrix, seq1, seq2)
     # SW = SmithWaterman(sequence1, sequence2)
     # out1, out2 = SW.align()
-    NW = NeedlemanWunsch(sequence1, sequence2)
-    out1, out2 = NW.align()
+    # NW = NeedlemanWunsch(sequence1, sequence2)
+    # out1, out2 = NW.align()
 
     # Part 2 - O(n) dynamic prog. (space)
-    # HB = Hirschberg(sequence1, sequence2)
-    # out1, out2 = HB.run()
+    HB = Hirschberg(sequence1, sequence2)
+    out1, out2 = HB.run()
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
     # FA = FASTA
