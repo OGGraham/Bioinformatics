@@ -12,18 +12,19 @@ def setup(seq1, seq2):
     return seq1, seq2, scoring_matrix, p
 
 
-def matrix_setup(scoring_matrix, local):
+def matrix_setup(scoring_matrix, local, gap_penalty):
     """
     Given the scoring matrix, create the backtrack matrix & init the vals in both
     :param scoring_matrix: n x m array
     :param local: bool, whether local alignment or not
+    :param gap_penalty: int (-ve), amount to penalize score by
     :return: n x m scoring matrix & n x m backtrack matrix (both w/ first row & col initialized)
     """
     # If local alignment, init scoring_matrix vals = 0; else = gap penalty
     if local:
         penalty = 0
     else:
-        penalty = -2
+        penalty = gap_penalty
 
     # Create backtrack matrix -> len + 1 as top left is blank
     backtrack_matrix = [[None for _ in range(len(scoring_matrix[0]))] for _ in range(len(scoring_matrix))]
