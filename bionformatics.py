@@ -107,7 +107,6 @@ class NeedlemanWunsch():
         self.scoring_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.scoring_matrix, local=False,
                                                                                    gap_penalty=self.gap_penalty)
 
-
     # Scoring function
     def score(self, a, b):
         # a & b match
@@ -129,7 +128,7 @@ class NeedlemanWunsch():
                     self.scoring_matrix[y-1][x-1] + self.score(self.seq2[y-1], self.seq1[x-1]),  # diagonal
                     self.scoring_matrix[y-1][x] + self.gap_penalty,  # up
                     self.scoring_matrix[y][x - 1] + self.gap_penalty,  # left
-                    0]  # 0 for local alignment
+                ]
                 # Update scoring matrix
                 self.scoring_matrix[y][x] = max(vals)
                 # Get index of max
@@ -141,6 +140,7 @@ class NeedlemanWunsch():
                     self.backtrack_matrix[y][x] = 'U'
                 elif index == 2:
                     self.backtrack_matrix[y][x] = 'L'
+
 
         # Find all max alignments
         return helper_functions.backtrack(self.backtrack_matrix, max_index, self.seq1, self.seq2)
@@ -237,9 +237,6 @@ class Hirschberg():
 
         # Apply SW for optimal local alignment
         elif len(seq1) == 1 or len(seq2) == 1:
-            # FIXME: think this needs to be Needleman -> e.g. C-T will return [],[] when should return [C], [T]
-            # SW = SmithWaterman(seq1, seq2)
-            # out1, out2 = SW.align()
             NW = NeedlemanWunsch(seq1, seq2)
             out1, out2 = NW.align()
 
@@ -299,7 +296,6 @@ class FASTA():
         # Penalty for matching with gap
         self.gap_penalty = -2
 
-
     def align(self):
         return [], []
 
@@ -317,6 +313,7 @@ if __name__ == "__main__":
     # sequence1 = "TGTCC"
     # sequence2 = "ACTGACCT"
 
+
     print("Starting:")
     print("Seq 1 - {0} ".format(sequence1))
     print("Seq 2 - {0}".format(sequence2))
@@ -333,11 +330,12 @@ if __name__ == "__main__":
     # results = part_one(p, scoring_matrix, seq1, seq2)
     # SW = SmithWaterman(sequence1, sequence2)
     # out1, out2 = SW.align()
+    NW = NeedlemanWunsch(sequence1, sequence2)
+    out1, out2 = NW.align()
 
     # Part 2 - O(n) dynamic prog. (space)
-    # TODO: Replace SW in method with Needlman, reason set out in above FIXME
-    HB = Hirschberg(sequence1, sequence2)
-    out1, out2 = HB.run()
+    # HB = Hirschberg(sequence1, sequence2)
+    # out1, out2 = HB.run()
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
     # FA = FASTA
