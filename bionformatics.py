@@ -272,7 +272,6 @@ class Hirschberg():
         # Get local alignment
         return [self.align(self.seq1[min_index[1]:max_index[1]], self.seq2[min_index[0]:max_index[0]], min_index[1], min_index[0])]
 
-    # TODO: need to track indices of sequences in parent string
     # Hirschberg algorithm (ref. https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
     def align(self, seq1, seq2, seq1_offset, seq2_offset):
         out1_chars, out2_chars = [], []
@@ -286,12 +285,8 @@ class Hirschberg():
                 out1_chars.append('-')
                 out2_chars.append(seq2[i])
             # Score produced alignment
-            prev_score = 0
             for i in range(len(out1_chars)):
-                score = max(0, prev_score + self.score(out1_chars[i], out2_chars[i]))
-                if score > max_score:
-                    max_score = score
-                prev_score = score
+                max_score += self.score(out1_chars[i], out2_chars[i])
 
         # Empty seq2
         elif len(seq2) == 0:
@@ -300,12 +295,8 @@ class Hirschberg():
                 out1_chars.append(seq1[i])
                 out2_chars.append('-')
             # Score produced alignment
-            prev_score = 0
             for i in range(len(out1_chars)):
-                score = max(0, prev_score + self.score(out1_chars[i], out2_chars[i]))
-                if score > max_score:
-                    max_score = score
-                prev_score = score
+                max_score += self.score(out1_chars[i], out2_chars[i])
 
         # Apply SW for optimal local alignment
         elif len(seq1) == 1 or len(seq2) == 1:
@@ -314,7 +305,6 @@ class Hirschberg():
             max_score, out1_indices, out2_indices, out1_chars, out2_chars = needleman_output[0], needleman_output[1][0], \
                                                                         needleman_output[1][1], needleman_output[1][2],\
                                                                         needleman_output[1][3]
-            # TODO: adjust indices to account for offsets
             out1_indices = [x + seq1_offset for x in out1_indices]
             out2_indices = [x + seq2_offset for x in out2_indices]
 
@@ -346,9 +336,6 @@ class Hirschberg():
             out1_indices = aligned_1_left_indices + aligned_1_right_indices
             out2_indices = aligned_2_left_indices + aligned_2_right_indices
             max_score = max_score_left + max_score_right
-
-        # print("In: {0} | {1}".format(seq1, seq2))
-        # print("Out: Score {0} - Indices {1} | {2} - Chars {3} | {4}".format(max_score, out1_indices, out2_indices, out1_chars, out2_chars))
 
         return max_score, out1_indices, out2_indices, out1_chars, out2_chars
 
@@ -543,7 +530,6 @@ def dynprog(alphabet, scoring_matrix, sequence1, sequence2):
 def dynproglin(alphabet, scoring_matrix, sequence1, sequence2):
     HB = Hirschberg(sequence1, sequence2, scoring_matrix, alphabet)
     results = HB.run()
-    print("Output", results)
     return results[0][0], results[0][1], results[0][2], results[0][3], results[0][4]
 
 
@@ -607,7 +593,6 @@ if __name__ == "__main__":
     # score, out1_indices, out2_indices, out1_chars, out2_chars = results[0], results[1][0], results[1][1], results[1][2], results[1][3]
 
     # Part 2 - O(n) dynamic prog. (space)
-    # FIXME: correct matches, incorrect scoring!
     score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
