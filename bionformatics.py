@@ -1,13 +1,10 @@
 import helper_functions
 import re
+import numpy as np
+import math
+from collections import OrderedDict
 
 """
-The first part is about implementing different algorithms, exact and heuristic, for local alignment.
-The input consists of four items: a string of all (unique) letters of length p, a (p + 1) x (p + 1) scoring matrix
-(represented by a list of lists) and the two sequences.
-
-You need to provide three functions which implement the following algorithms.
-
 1) Basic dynamic programming that runs in quadratic time and space [up to 50 marks].
 2) Dynamic programming that runs in linear space [up to 65 marks].
 3)A Heuristic procedure that runs in sub-quadratic time (similar to FASTA and BLAST) [up to 85 marks].
@@ -15,11 +12,8 @@ You need to provide three functions which implement the following algorithms.
 They should output three items: the score of the best local alignment found by the algorithm plus two lists of indices,
 one for each input sequences, that realise the matches/mismatches in the alignment.
 
-This part will be marked automatically, so please make sure that you get both the input and the output in the right
-format.
-
-// TODO: For second part & introducing new scoring rules -> 'Gap Penalty (special penalty for consecutive “-”)'
-//    https://www.site.uottawa.ca/~lucia/courses/5126-10/lecturenotes/03-05SequenceSimilarity.pdf (slide 31+)
+TODO: For second part & introducing new scoring rules -> 'Gap Penalty (special penalty for consecutive “-”)'
+      https://www.site.uottawa.ca/~lucia/courses/5126-10/lecturenotes/03-05SequenceSimilarity.pdf (slide 31+)
 
 """
 
@@ -188,6 +182,7 @@ class Hirschberg():
     :param seq2: sequence of chars, str
     :return: 2d array of each chars alignment
     """
+
     def __init__(self, seq1, seq2, scoring_matrix, alphabet):
         # Calculating score of pairings
         self.scoring_matrix = scoring_matrix
@@ -270,7 +265,7 @@ class Hirschberg():
         min_index[0] = len(self.seq2) - min_index[0]
 
         # Get local alignment
-        return [self.align(self.seq1[min_index[1]:max_index[1]], self.seq2[min_index[0]:max_index[0]], min_index[1], min_index[0])]
+        return self.align(self.seq1[min_index[1]:max_index[1]], self.seq2[min_index[0]:max_index[0]], min_index[1], min_index[0])
 
     # Hirschberg algorithm (ref. https://en.wikipedia.org/wiki/Hirschberg%27s_algorithm)
     def align(self, seq1, seq2, seq1_offset, seq2_offset):
@@ -340,8 +335,7 @@ class Hirschberg():
         return max_score, out1_indices, out2_indices, out1_chars, out2_chars
 
 
-# TODO: Use numba decorator to increase performance
-class FASTA():
+class FASTA:
     """
     3) Heuristic procedure that runs in sub-quadratic time (similar to FASTA and BLAST) [up to 85 marks].
     - for local alignment
@@ -350,19 +344,43 @@ class FASTA():
     :return: 2 arr's of each chars alignment
     """
 
-    def __init__(self, seq1, seq2):
-        # Setup
-        self.seq1, self.seq2, self.scoring_matrix, self.p = helper_functions.create_cost_matrix(seq1, seq2)
+    def __init__(self, seq1, seq2, scoring_matrix, alphabet):
+        # Calculating score of pairings
+        self.scoring_matrix = scoring_matrix
 
-        # Default word length
-        self.word_length = 2
+        # Set of unique characters (same order as in scoring matrix)
+        self.alphabet = alphabet
 
-        # Penalty for matching with gap
-        self.gap_penalty = -2
+        # Sequences
+        self.seq1 = seq1
+        self.seq2 = seq2
 
-        # Setup both backtrack and scoring matrix
-        self.scoring_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.scoring_matrix, local=True,
-                                                                                   gap_penalty=self.gap_penalty)
+        # Word length
+        self.word_length = 3
+
+        # Merge distance
+        self.merge_distance = 2
+
+        # Setup cost matrix
+        self.cost_matrix = helper_functions.create_cost_matrix(seq1, seq2)
+
+        # Setup both backtrack and cost matrix initial values
+        self.cost_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.cost_matrix, local=True)
+
+    # Scoring function
+    def score(self, a, b):
+        # Get index in scoring matrix for chars a & b
+        if a == '-':
+            a_index = len(self.scoring_matrix[0]) - 1
+        else:
+            a_index = self.alphabet.index(a)
+        if b == '-':
+            b_index = len(self.scoring_matrix) - 1
+        else:
+            b_index = self.alphabet.index(b)
+
+        # Return score from matrix
+        return self.scoring_matrix[b_index][a_index]
 
     def seed(self, seq1, seq2):
         """
@@ -387,138 +405,144 @@ class FASTA():
                     words.append([(i, i+self.word_length), match])
         return words
 
-    def get_diagonals(self, words):
+    def get_diagonals(self, seeds):
         """
         Given the word indices, find ones that lie on the same diagonal.
         They lie on the same diagonal if the difference in start index is the same
-        :param words: list of tuples of  matches in words
+        :param seeds: list of tuples of  matches in words
         :return:
         """
         # Store the difference as the key, and the indices as the values
         diagonals = {}
-
-        for item in words:
+        # Iterate over all seeds
+        for item in seeds:
             # Get difference in starting index
             diff = item[0][0] - item[1][0]
-
-            # Add item to dict
+            # Add item to dict s.t. all items w/ same diff in starting index have same key in dict
             try:
                 diagonals[diff].append(item)
             except KeyError:
                 diagonals[diff] = [item]
-
         return diagonals
 
-    def combine(self, diagonals):
+    def get_threshold(self):
+        """
+        Iterate over scoring matrix and determine the threshold value
+        :return: int, threshold hold value
+        """
+        # Calculate weighted average according to symbol count within the sequences
+        char_freq = {i: (self.seq1+self.seq2).count(i)/len(self.seq1+self.seq2) for i in self.alphabet}
+
+        # For all pairs, get scores and weight by char_freq
+        pairs = [[i, j] for i in self.alphabet for j in self.alphabet]
+        pair_weights = [char_freq[x]+char_freq[y] for x, y in pairs]
+
+        # Expected score
+        threshold = np.average([self.score(x[0], x[1]) for x in pairs], weights=pair_weights)
+
+        return threshold
+
+    def extend(self, diagonals):
         """
         Given a dict of all seeds along the same diagonal, extend them if they lie upon the
         same diagonal and return the new start-end indices
         :param diagonals: dict, output of get_diagonals
         :return: 2d arr of tuples, [[(start1, end1), (start2, end2)], ...]
         """
-        # Arr for output
-        out = []
 
-        # Combine the sequences that lie on the same diagonal
-        for diagonal in diagonals.values():
-            min_i1, max_i1 = float('inf'), 0  # seq1
-            min_i2, max_i2 = float('inf'), 0  # seq2
-            # Get min and max index of seeds on same diagonal
-            for item in diagonal:
-                if item[0][0] < min_i1:
-                    min_i1 = item[0][0]
-                if item[0][1] > max_i1:
-                    max_i1 = item[0][1]
-                if item[1][0] < min_i2:
-                    min_i2 = item[1][0]
-                if item[1][1] > max_i2:
-                    max_i2 = item[1][1]
+        # Calculate the expected score of any given string
+        threshold = self.get_threshold()
 
-            # Produce new start-end indices for the sequences
-            out.append([(min_i1, max_i1), (min_i2, max_i2)])
+        # Repeat until no more merges occur
+        while True:
+            # Exit condition -> no more merges have occured
+            flag = True
 
-        return out
+            # Loop over every diagonal
+            for diagonal_id in diagonals:
 
-    def score(self, a, b):
-        if a == b:
-            return 2
-        return -1
+                # Get all subsequences that lie on that diagonal
+                seeds = diagonals[diagonal_id]
+                new_seeds = []
+                # If len(seeds) == 1 [no option to merge]
+                if len(seeds) == 1:
+                    new_seeds = seeds
+                else:
+                    # Loop over all seeds on the same diagonal
+                    for i in range(len(seeds)-1):
+                        # Get subsequences between seeds & score it
+                        subseq1, subseq2 = self.seq1[seeds[i][0][1]:seeds[i+1][0][0]], \
+                                           self.seq2[seeds[i][1][1]:seeds[i+1][1][0]]
+                        score = 0
+                        for j in range(len(subseq1)):
+                            score += self.score(subseq1[j], subseq2[j])
+
+                        # If score >= expected value -> merge
+                        if score >= threshold:
+                            s = [(seeds[i][0][0], seeds[i+1][0][1]), (seeds[i][1][0], seeds[i+1][1][1])]
+                            if s not in seeds:
+                                # print("Original {0} | {1}".format(seeds[i], seeds[i+1]))
+                                # print("Merged: {0}".format(s))
+                                new_seeds.append(s)
+                                flag = False
+                        else:
+                            new_seeds.append(seeds[i])
+                            if i == len(seeds)-2:  # Add final seed into pool even if dont match
+                                new_seeds.append(seeds[i+1])
+
+                # Update seeds to contain merges
+                diagonals[diagonal_id] = new_seeds
+
+            # If no merges have occured -> break
+            if flag:
+                break
+
+        return diagonals
+
+    def get_best(self, diagonals):
+        """
+        Given the (now merged diagonals), get the best n% of seeds.
+        :param diagonals: dict of seeds along same diagonals.
+        :return:
+        """
+        to_return = math.ceil(len(diagonals) * 0.2)
+        top_scores = []
+
+        for diagonal_id in diagonals:
+            for seed in diagonals[diagonal_id]:
+                seq1, seq2 = self.seq1[seed[0][0]:seed[0][1]], self.seq2[seed[1][0]:seed[1][1]]
+                score = 0
+                for i in range(len(seq1)):
+                    score += self.score(seq1[i], seq2[i])
+                if len(top_scores) < to_return:
+                    top_scores.append([score, seed])
+                elif score > top_scores[-1][0]:
+                    del top_scores[-1]
+                    top_scores.append([score, seed])
+                # Sort in desc order by score
+                top_scores = sorted(top_scores, key=lambda x: x[0], reverse=True)
+        return [x[1] for x in top_scores]
+
+    def banded_smith_waterman(self, best_seeds):
+
 
     def align(self):
-        # 1) Seed - Find word sequences the sequences have in common, default size = 3
-        # 2) Compile list of neighborhood words
+        # --- 1) Seed sequences - find word sequences the sequences have in common ---
+        seeds = self.seed(self.seq1, self.seq2)
+        # print("Seeds: {0}".format(seeds))
 
-        # Seed strings
-        words = self.seed(self.seq1, self.seq2)
-        # print(words)
+        # --- 2) Identify matching diagonals in seeds ---
+        diagonals = self.get_diagonals(seeds)
+        # print("Diagonals: {0}".format(diagonals))
 
-        # Identify diagonals
-        diagonals = self.get_diagonals(words)
-        # print(diagonals)
+        # --- 3) Greedily extend words along diagonals if score of subsequence > threshold ---
+        diagonals = self.extend(diagonals)
 
-        # Greedily extend words along diagonal as long as score improves
-        words = self.combine(diagonals)
-        print(words)
+        # --- 4) Get top n% of seeds ---
+        best_seeds = self.get_best(diagonals)
 
-        # TODO: Run banded SmithWaterman on the greedily extended matches
-
-
-        # # Iterate over words and score each one -> return the best alignment
-        # max_score = -float('inf')
-        # best_word = None
-        #
-        # for word in words:
-        #     seq1_local = self.seq1[word[0][0], word[0][1]]
-        #     seq2_local = self.seq2[word[1][0], word[1][1]]
-        #     score = score(seq1_local, seq2_local)
-        #     if score > max_score:
-        #         max_score = score
-        #         best_word = word
-        #
-        # # Return local alignment
-        # return out1, out2
-
-
-        exit(0)
-
-        ## Max Score
-        # max_score = 0
-        # max1, max2 = [], []
-        #
-        # # Iterate over words and extend at either end
-        # for word in words:
-        #     # Get start & end indices
-        #     start_seq1, end_seq1 = word[0][0], word[0][1]
-        #     start_seq2, end_seq2 = word[1][0], word[1][1]
-        #
-        #     # Init score to matching score * word len
-        #     score = self.score('a', 'a') * self.word_length
-        #
-        #     # For each match, extend in each direction until score = 0 (local)
-        #     while score > 0 and (start_seq1 != 0 or start_seq2 != 0 or end_seq1 <= len(self.seq1)-1
-        #                          or end_seq2 <= len(self.seq2)-1):
-        #
-        #         # Increment end pointers (if can)
-        #         if start_seq1 > 0 and start_seq2 > 0:
-        #             start_seq1 -= 1
-        #             start_seq2 -= 1
-        #             start_score = self.score(self.seq1[start_seq1], self.seq2[start_seq2])
-        #             score = max(0, start_score + score)
-        #             print("Start", start_seq1, start_seq2, start_score)
-        #
-        #         if end_seq1 <= len(self.seq1)-1 and end_seq2 <= len(self.seq2)-1:
-        #             end_seq1 += 1
-        #             end_seq2 += 1
-        #             end_score = self.score(self.seq1[end_seq1], self.seq2[end_seq2])
-        #             score = max(0, end_score + score)
-        #             print("End", end_seq2, end_seq2, end_score)
-        #
-        #     # Store alignment if score > max
-        #     if score > max_score:
-        #         max_score = score
-        #         max1, max2 = [x for x in self.seq1[start_seq1:end_seq1]],\
-        #                      [x for x in self.seq2[start_seq2:end_seq2]]
-        # return max1, max2
+        # --- 5) Run banded SmithWaterman (with width A) on best seed ---
+        return self.banded_smith_waterman(best_seeds)
 
 
 def dynprog(alphabet, scoring_matrix, sequence1, sequence2):
@@ -530,7 +554,14 @@ def dynprog(alphabet, scoring_matrix, sequence1, sequence2):
 def dynproglin(alphabet, scoring_matrix, sequence1, sequence2):
     HB = Hirschberg(sequence1, sequence2, scoring_matrix, alphabet)
     results = HB.run()
-    return results[0][0], results[0][1], results[0][2], results[0][3], results[0][4]
+    return results[0], results[1], results[2], results[3], results[4]
+
+
+def heuralign(alphabet, scoring_matrix, sequence1, sequence2):
+    FA = FASTA(sequence1, sequence2, scoring_matrix, alphabet)
+    results = FA.align()
+    return results[0], results[1], results[2], results[3], results[4]
+
 
 
 if __name__ == "__main__":
@@ -593,11 +624,10 @@ if __name__ == "__main__":
     # score, out1_indices, out2_indices, out1_chars, out2_chars = results[0], results[1][0], results[1][1], results[1][2], results[1][3]
 
     # Part 2 - O(n) dynamic prog. (space)
-    score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
+    # score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
-    # FA = FASTA(sequence1, sequence2)
-    # out1, out2 = FA.align()
+    score, out1_indices, out2_indices, out1_chars, out2_chars = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
 
 
     # Output - print results
