@@ -2,7 +2,6 @@ import helper_functions
 import re
 import numpy as np
 import math
-from collections import OrderedDict
 
 """
 1) Basic dynamic programming that runs in quadratic time and space [up to 50 marks].
@@ -335,6 +334,163 @@ class Hirschberg():
         return max_score, out1_indices, out2_indices, out1_chars, out2_chars
 
 
+class BandedSmithWaterman:
+    def __init__(self, seq1, seq2, scoring_matrix, alphabet, width, seed):
+        # Scores of pairings
+        self.scoring_matrix = scoring_matrix
+
+        # Set of unique characters (same order as in scoring matrix)
+        self.alphabet = alphabet
+
+        # Width to explore
+        self.width = width
+
+        # Seed of interest (ungapped alginment (s1, e1). (s2, e2)
+        self.seed = seed
+
+        # Create region for checking whether inside/outside region
+        self.seq1 = seq1
+        self.seq2 = seq2
+        self.region = self.create_region_set(seed, seq1, seq2)
+
+        # # TODO: current method search most of the region -> halve width?
+        # # TODO: Check all of the intercept stuff is correct
+        # # Find start intercept with axis
+        # x, y = seed[0][0], seed[1][0]  # seq1 -> x, seq2 -> y
+        # x_intercept, y_intercept = x - min(x, y), y - min(x, y)
+        # print("Axis Intercept: {0},{1}".format(x_intercept, y_intercept))
+        #
+        # # Banded region is width space away from cells on diagonal in dirs: left, right, up, down (that exist)
+        # # Get starts of seq1 & seq2 (leftmost cell and topmost cell)
+        # seq1_start = max(0, x_intercept - width)
+        # seq2_start = max(0, y_intercept - width)
+        #
+        # # Get ends of seq1 & seq2 (rightmost and bottommost cell)
+        # seq1_end = len(seq1)-seq2_start
+        # seq2_end = len(seq2)-seq1_start
+        #
+        # # Can crop sequences s.t. ignore search area outside of region produced by diagonal
+        # self.seq1 = seq1[seq1_start:seq1_end]
+        # self.seq2 = seq1[seq2_start:seq2_end]
+        #
+        # # TODO: will need to offset indices according to how much content we cut off sequences
+        # print("Start: {0},{1}".format(seq1_start, seq2_start))
+        # print("End: {0},{1}".format(seq1_end, seq2_end))
+        # print(self.seq1, self.seq2)
+
+        # Setup cost matrix
+        self.cost_matrix = helper_functions.create_cost_matrix(seq1, seq2)
+
+        # Setup both backtrack and cost matrix initial values
+        self.cost_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.cost_matrix, local=True)
+
+    def create_region_set(self, seed, seq1, seq2):
+        """
+        Given the starting seed, iterate along its diagonal and store all coors that belong to the banded search
+        :param seed:
+        :param seq1:
+        :param seq2:
+        :return:
+        """
+        # Set to store all (x, y) coors of valid regions in the grid
+        region = set()
+
+        # Iterate up + left add all along diagonal + any width away to set
+        x, y = seed[0][0], seed[1][0]
+        while x >= 0 and y >= 0:
+            for i in range(-self.width, self.width+1):
+                for j in range(-self.width, self.width+1):
+                    if 0 <= x+i < len(seq1) and 0 <= y+j < len(seq2):
+                        region.add((x+i, y+j))
+            x -= 1
+            y -= 1
+        # Iterate down + right add all along diagonal + any width away to set
+        x, y = seed[0][0]+1, seed[1][0]+1
+        while x < len(seq1) and y < len(seq2):
+            for i in range(-self.width, self.width + 1):
+                for j in range(-self.width, self.width + 1):
+                    if 0 <= x + i < len(seq1) and 0 <= y + j < len(seq2):
+                        region.add((x + i, y + j))
+            x += 1
+            y += 1
+
+        # # Debug
+        # for y in range(len(seq2)):
+        #     for x in range(len(seq1)):
+        #         if (x, y) in region:
+        #             print("X", end=" ")
+        #         else:
+        #             print("-", end=" ")
+        #     print("")
+
+        return region
+
+    def in_region(self, x, y):
+        """
+        Given x & y coordinates return T/F dependent on whether the location lies within the banded region.
+        :param x:
+        :param y:
+        :return:
+        """
+        return (x, y) in self.region
+
+    # Scoring function
+    def score(self, a, b):
+        # Get index in scoring matrix for chars a & b
+        if a == '-':
+            a_index = len(self.scoring_matrix[0])-1
+        else:
+            a_index = self.alphabet.index(a)
+        if b == '-':
+            b_index = len(self.scoring_matrix)-1
+        else:
+            b_index = self.alphabet.index(b)
+
+        # Return score from matrix
+        return self.scoring_matrix[b_index][a_index]
+
+    # Align 2 sequences
+    def align(self):
+        # Max score tracker
+        max_score = -float('inf')
+        max_index = []  # can have >1 greatest local alignment
+
+        # Iterate over scoring matrix and generate scoring (start at 1,1 and work from there) (O(n^2) method)
+        for y in range(1, len(self.seq2)+1):  # y -> seq2
+            for x in range(1, len(self.seq1)+1):  # x -> seq1
+                # Check if current scoring cell lies in diagonal
+                if self.in_region(x, y):
+                    # If in diagonal, score as normal (cell not in diagonal all have score = 0)
+                    vals = [
+                        # seq2[y-1], seq1[x-1] as matrix has empty row & col at start
+                        self.cost_matrix[y - 1][x - 1] + self.score(self.seq2[y - 1], self.seq1[x - 1]),  # diagonal
+                        self.cost_matrix[y - 1][x] + self.score(self.seq2[y - 1], '-'),  # up
+                        self.cost_matrix[y][x - 1] + self.score('-', self.seq1[x - 1]),  # left
+                        0]  # 0 for local alignment
+                    # Update scoring matrix
+                    self.cost_matrix[y][x] = max(vals)
+                    # Get index of max
+                    index = vals.index(max(vals))
+                    # Update backtrack matrix if score it come from is a valid cell
+                    if index == 0 and self.in_region(x-1, y-1):
+                        self.backtrack_matrix[y][x] = 'D'
+                    elif index == 1 and self.in_region(x, y-1):
+                        self.backtrack_matrix[y][x] = 'U'
+                    elif index == 2 and self.in_region(x-1, y):
+                        self.backtrack_matrix[y][x] = 'L'
+                    # Check if new greatest score seen (score for vals outside diagonals score = 0)
+                    if max(vals) > max_score:
+                        max_score = max(vals)
+                        max_index = [y, x]
+                else:
+                    # If cell doesn't lie in diagonal -> score = 0 (local alignment still)
+                    self.cost_matrix[y][x] = 0
+
+        # Return max score and best local alignment chars + indices
+        return [max_score, helper_functions.backtrack(self.backtrack_matrix, max_index, self.seq1, self.seq2)]
+
+
+
 class FASTA:
     """
     3) Heuristic procedure that runs in sub-quadratic time (similar to FASTA and BLAST) [up to 85 marks].
@@ -524,7 +680,34 @@ class FASTA:
         return [x[1] for x in top_scores]
 
     def banded_smith_waterman(self, best_seeds):
+        """
+        Run banded smith waterman with the width = avg distance between diagonals
+        :param best_seeds: 2d arr of (start, end) indices for best seeds
+        :return: results for FASTA
+        """
+        # --- 1) Calculate average distance between diagonals as banded region to search in --
+        avg_width = []
+        for i in range(len(best_seeds)-1):
+            i_diag = best_seeds[i][0][0] - best_seeds[i][1][0]
+            for j in range(i+1, len(best_seeds)):
+                j_diag = best_seeds[j][0][0] - best_seeds[j][1][0]
+                avg_width.append(abs(i_diag - j_diag))
+        avg_width = round(sum(avg_width)/len(avg_width))
+        print("Average Distance between best scoring seeds (diagonally) {0}".format(avg_width))
 
+        # --- 2) Run BandedSmithWaterman on each pair using the found average distance between diagonals ---
+        max_score = -float('inf')
+        best_results = None
+        for seed in best_seeds:
+            BSW = BandedSmithWaterman(self.seq1, self.seq2, self.scoring_matrix, self.alphabet, avg_width, seed)
+            results = BSW.align()
+            print("Input Seed {0} | Output - {1}".format(seed, results))
+            if results[0] > max_score:
+                max_score = results[0]
+                best_results = results
+
+        print("BEST RESULTS", best_results)
+        return best_results
 
     def align(self):
         # --- 1) Seed sequences - find word sequences the sequences have in common ---
@@ -560,7 +743,7 @@ def dynproglin(alphabet, scoring_matrix, sequence1, sequence2):
 def heuralign(alphabet, scoring_matrix, sequence1, sequence2):
     FA = FASTA(sequence1, sequence2, scoring_matrix, alphabet)
     results = FA.align()
-    return results[0], results[1], results[2], results[3], results[4]
+    return results[0], results[1][0], results[1][1], results[1][2], results[1][3]
 
 
 
