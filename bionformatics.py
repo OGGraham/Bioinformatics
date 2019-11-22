@@ -400,6 +400,7 @@ class BandedSmithWaterman:
             y -= 1
         # Iterate down + right add all along diagonal + any width away to set
         x, y = seed[0][0]+1, seed[1][0]+1
+
         while x < len(seq1) and y < len(seq2):
             for i in range(-self.width, self.width + 1):
                 for j in range(-self.width, self.width + 1):
@@ -654,7 +655,7 @@ class FASTA:
         :param diagonals: dict of seeds along same diagonals.
         :return:
         """
-        to_return = math.ceil(len(diagonals) * 0.5)
+        to_return = math.ceil(len(diagonals) * 0.1)
         top_scores = []
 
         for diagonal_id in diagonals:
@@ -797,13 +798,6 @@ if __name__ == "__main__":
     print("Seq 2 - {0}".format(sequence2))
     print("------------")
 
-    # Expected output: A-, G-, TT, AA, CT, GG, CC, A-
-    # (w/ scoring del/ins = -2, sub(x,y) = +2 if match, else -1
-    # exp1 = ['-', '-', 'T', 'A', 'T', 'G', 'C', '-']
-    # exp2 = ['A', 'G', 'T', 'A', 'C', 'G', 'C', 'A']
-    # print("Expected:")
-    # print(helper_functions.alignment_pretty_print(exp1, exp2))
-
     # Part 1 - O(n^2) dynamic prog. (time + space)
     # score, out1_indices, out2_indices, out1_chars, out2_chars = dynprog(alphabet, scoring_matrix, sequence1, sequence2)
 
@@ -815,7 +809,6 @@ if __name__ == "__main__":
     # Part 2 - O(n) dynamic prog. (space)
     # score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
 
-    # TODO: improve code efficiency
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
     score, out1_indices, out2_indices, out1_chars, out2_chars = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
 
