@@ -11,9 +11,6 @@ import math
 They should output three items: the score of the best local alignment found by the algorithm plus two lists of indices,
 one for each input sequences, that realise the matches/mismatches in the alignment.
 
-TODO: For second part & introducing new scoring rules -> 'Gap Penalty (special penalty for consecutive “-”)'
-      https://www.site.uottawa.ca/~lucia/courses/5126-10/lecturenotes/03-05SequenceSimilarity.pdf (slide 31+)
-
 """
 
 
@@ -807,18 +804,12 @@ if __name__ == "__main__":
     # score, out1_indices, out2_indices, out1_chars, out2_chars = results[0], results[1][0], results[1][1], results[1][2], results[1][3]
 
     # Part 2 - O(n) dynamic prog. (space)
-    # score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
+    score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
-    score, out1_indices, out2_indices, out1_chars, out2_chars = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
-
+    # score, out1_indices, out2_indices, out1_chars, out2_chars = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
 
     # Output - print results
     print("------------")
     print("Score: {0}".format(score))
     print("Indices: {0} | {1}".format(out1_indices, out2_indices))
-    # TODO: get this functional again
-    # print("Best Local Alignment:")
-    # helper_functions.alignment_pretty_print(out1_chars, out2_chars, sequence1, sequence2)
-
-
