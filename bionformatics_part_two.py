@@ -1,7 +1,6 @@
 import helper_functions
-import re
-import numpy as np
-import math
+import itertools
+
 
 """
 The second part is about coming up with crazy substitution scores. [total of 65 marks - the first question is for 
@@ -9,27 +8,21 @@ everyone and the second is for L4 only]
 Design your own substitution-cost function that operates on pairs of sequences of letters instead of on pairs of 
 letters. Clearly describe it on at most one page [15 marks]. 
 
-For instance, such a function might give a cost of multi-letter substitution of "ABC" by "CBB", which is different 
-from the simple addition of the single-letter costs, the mismatches AC and CB and the match BB;
-have a fixed cost for inserting/deleting a sequence of Cs irrespective of its length, e.g. the first C incurs a 
-cost of 1/2, the second one a cost of 1/4, the third one a cost of 1/8 and so on (so that the total is less than 1).
+Stefan's alternative:
+
+It is to solve 2 above with this specific function: it is defined by a symmetric matrix which is indexed by all single 
+letters plus some short substrings. For instance, it could have ABC and CBB as indices and the cost of the "mismatch" 
+could be different from the sum of the scores of the mismatches AC and CB and the match BB.
 
 """
 
 
 class SmithWaterman2:
-    """
-    1) Basic dynamic programming that runs in quadratic time and space [up to 50 marks].
-     - for local alignment
-    Implementation of the Smith-Waterman algorithm: https://en.wikipedia.org/wiki/Smith%E2%80%93Waterman_algorithm
-    :param seq1: sequence of chars, str
-    :param seq2: sequence of chars, str
-    :return: 2 arr's of each chars alignment
-    """
-
     def __init__(self, seq1, seq2, scoring_matrix, alphabet):
-        # Scores of pairings
-        self.scoring_matrix = scoring_matrix
+        # Part 2 - Setup multiple scoring matrices for subsequences
+        self.scoring_matrix_1, self.scoring_matrix_1_indices,\
+        self.scoring_matrix_2, self.scoring_matrix_2_indices,\
+        self.scoring_matrix_3, self.scoring_matrix_3_indices, = self.scoring_matricies_setup(scoring_matrix, alphabet)
 
         # Set of unique characters (same order as in scoring matrix)
         self.alphabet = alphabet
@@ -39,25 +32,60 @@ class SmithWaterman2:
         self.seq2 = seq2
 
         # Setup cost matrix
-        self.cost_matrix = helper_functions.create_cost_matrix(seq1, seq2)
+        self.cost_matrix = helper_functions.create_cost_matrix(self.seq1, self.seq2)
 
         # Setup both backtrack and cost matrix initial values
         self.cost_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.cost_matrix, local=True)
 
-    # Scoring function
-    def score(self, a, b):
-        # Get index in scoring matrix for chars a & b
-        if a == '-':
-            a_index = len(self.scoring_matrix[0])-1
-        else:
-            a_index = self.alphabet.index(a)
-        if b == '-':
-            b_index = len(self.scoring_matrix)-1
-        else:
-            b_index = self.alphabet.index(b)
+    # Setup cost matrices for subsequence scoring
+    def scoring_matricies_setup(self, scoring_matrix, alphabet):
+        # Local function for calculating scores of subsequences
+        def get_scores(a, b, indicies):
+            assert (len(a) == len(b))
+            s = 0
+            for i in range(len(a)):
+                s += self.score(a[i], b[i], scoring_matrix, indicies)
+            return s
 
-        # Return score from matrix
-        return self.scoring_matrix[b_index][a_index]
+        # Local function for creating scoring matrix
+        def create_scoring_matrix(new_indices, indicies):
+            # Create n x n size matrix
+            matrix = [[0 for _ in range(len(new_indices))] for _ in range(len(new_indices))]
+            # Populate w/ correct scores
+            for x, x_val in new_indices.items():
+                for y, y_val in new_indices.items():
+                    matrix[y_val][x_val] = get_scores(x, y, indicies)
+            return matrix
+
+        # Get scoring matrix & indices for len 1
+        matrix_len_1 = scoring_matrix
+        matrix_len_1_indices = {v: k for k, v in enumerate(alphabet + '-')}
+
+        # Get scoring matrix & indices for len 2
+        matrix_len_2_indices = {v: k for k, v in enumerate([''.join(x) for x in itertools.product(alphabet + '-',
+                                                                                                   repeat=2)])}
+        matrix_len_2 = create_scoring_matrix(matrix_len_2_indices, matrix_len_1_indices)
+
+        # Get scoring matrix & indices for len 3
+        matrix_len_3_indices = {v: k for k, v in enumerate([''.join(x) for x in itertools.product(alphabet + '-',
+                                                                                                   repeat=3)])}
+        matrix_len_3 = create_scoring_matrix(matrix_len_3_indices, matrix_len_1_indices)
+
+        return matrix_len_1, matrix_len_1_indices, matrix_len_2, matrix_len_2_indices, matrix_len_3, matrix_len_3_indices
+
+    # Scoring function
+    def score(self, a, b, scoring_matrix=None, indices=None):
+        if not scoring_matrix or not indices:
+            if len(a) == 3:
+                scoring_matrix = self.scoring_matrix_3
+                indices = self.scoring_matrix_3_indices
+            elif len(a) == 2:
+                scoring_matrix = self.scoring_matrix_2
+                indices = self.scoring_matrix_2_indices
+            else:
+                scoring_matrix = self.scoring_matrix_1
+                indices = self.scoring_matrix_1_indices
+        return scoring_matrix[indices[a]][indices[b]]
 
     # Align 2 sequences
     def align(self):
@@ -106,11 +134,11 @@ def dynprogcost(sequence1, sequence2):
 
 
 if __name__ == "__main__":
-    # # Debug input 1
-    # alphabet = "ABC"
-    # scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
-    # sequence1 = "AABBAACA"
-    # sequence2 = "CBACCCBA"
+    # Debug input 1
+    alphabet = "ABC"
+    scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
+    sequence1 = "AABBAACA"
+    sequence2 = "CBACCCBA"
     # # Debug input 2
     # alphabet = "ABCD"
     # scoring_matrix = [
@@ -131,16 +159,16 @@ if __name__ == "__main__":
     #         [-1,-1,-4,-4,-9]]
     # sequence1 = "AACAAADAAAACAADAADAAA"
     # sequence2 = "CDCDDD"
-    # Debug input 4
-    alphabet = "ABCD"
-    scoring_matrix = [
-            [ 1,-5,-5,-5,-1],
-            [-5, 1,-5,-5,-1],
-            [-5,-5, 5,-5,-4],
-            [-5,-5,-5, 6,-4],
-            [-1,-1,-4,-4,-9]]
-    sequence1 = "DDCDDCCCDCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCDDDCDADCDCDCDCD"
-    sequence2 = "DDCDDCCCDCBCCCCDDDCDBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBDCDCDCDCD"
+    # # Debug input 4
+    # alphabet = "ABCD"
+    # scoring_matrix = [
+    #         [ 1,-5,-5,-5,-1],
+    #         [-5, 1,-5,-5,-1],
+    #         [-5,-5, 5,-5,-4],
+    #         [-5,-5,-5, 6,-4],
+    #         [-1,-1,-4,-4,-9]]
+    # sequence1 = "DDCDDCCCDCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCDDDCDADCDCDCDCD"
+    # sequence2 = "DDCDDCCCDCBCCCCDDDCDBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBDCDCDCDCD"
 
     print("Starting:")
     # Strip to ensure no whitespace

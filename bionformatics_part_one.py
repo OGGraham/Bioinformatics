@@ -795,6 +795,9 @@ if __name__ == "__main__":
     print("Seq 2 - {0}".format(sequence2))
     print("------------")
 
+
+    # TODO: improve runtime of scoring by using dicts!
+
     # Part 1 - O(n^2) dynamic prog. (time + space)
     # score, out1_indices, out2_indices, out1_chars, out2_chars = dynprog(alphabet, scoring_matrix, sequence1, sequence2)
 
