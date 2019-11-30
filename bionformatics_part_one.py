@@ -752,11 +752,11 @@ def heuralign(alphabet, scoring_matrix, sequence1, sequence2):
 
 
 if __name__ == "__main__":
-    # # Debug input 1
-    # alphabet = "ABC"
-    # scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
-    # sequence1 = "AABBAACA"
-    # sequence2 = "CBACCCBA"
+    # Debug input 1
+    alphabet = "ABC"
+    scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
+    sequence1 = "AABBAACA"
+    sequence2 = "CBACCCBA"
     # # Debug input 2
     # alphabet = "ABCD"
     # scoring_matrix = [
@@ -777,16 +777,16 @@ if __name__ == "__main__":
     #         [-1,-1,-4,-4,-9]]
     # sequence1 = "AACAAADAAAACAADAADAAA"
     # sequence2 = "CDCDDD"
-    # Debug input 4
-    alphabet = "ABCD"
-    scoring_matrix = [
-            [ 1,-5,-5,-5,-1],
-            [-5, 1,-5,-5,-1],
-            [-5,-5, 5,-5,-4],
-            [-5,-5,-5, 6,-4],
-            [-1,-1,-4,-4,-9]]
-    sequence1 = "DDCDDCCCDCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCDDDCDADCDCDCDCD"
-    sequence2 = "DDCDDCCCDCBCCCCDDDCDBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBDCDCDCDCD"
+    # # Debug input 4
+    # alphabet = "ABCD"
+    # scoring_matrix = [
+    #         [ 1,-5,-5,-5,-1],
+    #         [-5, 1,-5,-5,-1],
+    #         [-5,-5, 5,-5,-4],
+    #         [-5,-5,-5, 6,-4],
+    #         [-1,-1,-4,-4,-9]]
+    # sequence1 = "DDCDDCCCDCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACCCCDDDCDADCDCDCDCD"
+    # sequence2 = "DDCDDCCCDCBCCCCDDDCDBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBDCDCDCDCD"
 
     print("Starting:")
     # Strip to ensure no whitespace
