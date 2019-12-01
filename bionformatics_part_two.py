@@ -205,8 +205,6 @@ class SmithWaterman2:
         left1 += r1
         left2 += r2
 
-        print([[diag1, diag2], [up1, up2], [left1, left2]])
-
         return [[diag1, diag2], [up1, up2], [left1, left2]]
 
     # Align 2 sequences
@@ -220,12 +218,11 @@ class SmithWaterman2:
             for x in range(1, len(self.seq1)+1):  # x -> seq1
                 # Get subsequences for scoring (partial backtrack)
                 subseqs = self.get_subsequences(x, y)
-                # Don't need to add prev. value from neighbouring square as scoring function INCLUDES this score
                 vals = [
                     # seq2[y-1], seq1[x-1] as matrix has empty row & col at start
-                    self.score(subseqs[0][0], subseqs[0][1]),  # diagonal
-                    self.score(subseqs[1][0], subseqs[1][1]),  # up
-                    self.score(subseqs[2][0], subseqs[2][1]),  # left
+                    self.score(subseqs[0][0], subseqs[0][1]) + self.cost_matrix[y-1][x-1],  # diagonal
+                    self.score(subseqs[1][0], subseqs[1][1]) + self.cost_matrix[y-1][x],  # up
+                    self.score(subseqs[2][0], subseqs[2][1]) + self.cost_matrix[y][x-1],  # left
                     0]  # 0 for local alignment
                 self.cost_matrix[y][x] = max(vals)
                 # Get index of max
@@ -249,7 +246,7 @@ class SmithWaterman2:
 def dynprogcost(sequence1, sequence2):
     # This section only expects alphabet of ABC
     if [x for x in set(sequence1 + sequence2) if x not in "ABC"]:
-        print("Invalid sequence chars detected - expecting strings containing of ABC only.")
+        print("Invalid sequence chars detected - expecting strings containing ABC only.")
         exit(-1)
     # Default params -> scoring matrix and ABC alphabet
     scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
@@ -267,6 +264,7 @@ if __name__ == "__main__":
     sequence1 = "AAAABCABABCAABCBA"
     sequence2 = "BBABAAABCCCBABCAA"
 
+    # TODO: altering scoring method at all? Happy with it?
 
     print("Starting:")
     # Strip to ensure no whitespace
