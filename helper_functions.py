@@ -25,9 +25,9 @@ def matrix_setup(cost_matrix, local, scoring_matrix=None, alphabet=None, seq1=No
     backtrack_matrix[0][0] = None
 
     # --- 2) Initialize values in cost matrix ---
-    # TODO: surely want to initialize values to the max(0, score(a,b)) rather than just 0?
     # If local alignment, init cost_matrix vals = 0
     if local:
+        # TODO: do we need to init the cells to max(0, score(a,b)) rather than just 0?
         # Init first row & cols of matrices to 0
         cost_matrix[0] = [0 for _ in range(len(cost_matrix[0]))]
         for i in range(len(cost_matrix)):

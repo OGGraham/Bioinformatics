@@ -489,7 +489,6 @@ class BandedSmithWaterman:
         return [max_score, helper_functions.backtrack(self.backtrack_matrix, max_index, self.seq1, self.seq2)]
 
 
-
 class FASTA:
     """
     3) Heuristic procedure that runs in sub-quadratic time (similar to FASTA and BLAST) [up to 85 marks].
@@ -803,7 +802,7 @@ if __name__ == "__main__":
     print("------------")
 
     # Part 1 - O(n^2) dynamic prog. (time + space)
-    # score, out1_indices, out2_indices = dynprog(alphabet, scoring_matrix, sequence1, sequence2)
+    score, out1_indices, out2_indices = dynprog(alphabet, scoring_matrix, sequence1, sequence2)
 
     # Debug - O(n^2) dynamic prog. (time + space) -> [GLOBAL alignment]
     # NW = NeedlemanWunsch(sequence1, sequence2, scoring_matrix, alphabet)
@@ -814,7 +813,7 @@ if __name__ == "__main__":
     # score, out1_indices, out2_indices = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
-    score, out1_indices, out2_indices, = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
+    # score, out1_indices, out2_indices, = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
 
     # Output - print results
     print("Score: {0}".format(score))

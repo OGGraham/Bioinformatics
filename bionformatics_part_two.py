@@ -14,10 +14,6 @@ It is to solve 2 above with this specific function: it is defined by a symmetric
 letters plus some short substrings. For instance, it could have ABC and CBB as indices and the cost of the "mismatch" 
 could be different from the sum of the scores of the mismatches AC and CB and the match BB.
 
-"""
-
-
-"""
 Scoring function:
 
 - Generate scores for subsequences:
@@ -245,7 +241,7 @@ class SmithWaterman2:
 
 def dynprogcost(sequence1, sequence2):
     # This section only expects alphabet of ABC
-    if [x for x in set(sequence1 + sequence2) if x not in "ABC"]:
+    if [x for x in set(sequence1 + sequence2) if x not in {"A", "B", "C"}]:
         print("Invalid sequence chars detected - expecting strings containing ABC only.")
         exit(-1)
     # Default params -> scoring matrix and ABC alphabet
@@ -253,7 +249,7 @@ def dynprogcost(sequence1, sequence2):
     alphabet = "ABC"
     SW = SmithWaterman2(sequence1, sequence2, scoring_matrix, alphabet)
     results = SW.align()
-    return results[0], results[1][0], results[1][1], results[1][2], results[1][3]
+    return results[0], results[1][0], results[1][1]
 
 
 if __name__ == "__main__":
@@ -264,17 +260,14 @@ if __name__ == "__main__":
     sequence1 = "AAAABCABABCAABCBA"
     sequence2 = "BBABAAABCCCBABCAA"
 
-    # TODO: altering scoring method at all? Happy with it?
-
     print("Starting:")
     # Strip to ensure no whitespace
     sequence1, sequence2 = sequence1.strip(), sequence2.strip()
     print("Seq 1 - {0} ".format(sequence1))
     print("Seq 2 - {0}".format(sequence2))
-    print("------------")
 
     # Q2 - Part 2 - O(n^2) dynamic prog. (time + space)
-    score, out1_indices, out2_indices, out1_chars, out2_chars = dynprogcost(sequence1, sequence2)
+    score, out1_indices, out2_indices = dynprogcost(sequence1, sequence2)
 
     # Output - print results
     print("------------")
