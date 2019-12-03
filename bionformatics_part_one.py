@@ -447,11 +447,15 @@ class BandedSmithWaterman:
         max_score = -float('inf')
         max_index = [0, 0]  # init to 0,0 (0 score)
 
-        # Iterate over scoring matrix and generate scoring (start at 1,1 and work from there) (O(n^2) method)
+        # Iterate over scoring matrix and generate scoring (start at 1,1 and work from there)
         for y in range(1, len(self.seq2)+1):  # y -> seq2
+            # Break flag -> set true once in banded region, then if out -> can break (as dont need to consider further)
+            flag = False
             for x in range(1, len(self.seq1)+1):  # x -> seq1
                 # Check if current scoring cell lies in diagonal
                 if self.in_region(x + self.seq1_offset, y + self.seq2_offset):
+                    # Set flag (as reached banded region)
+                    flag = True
                     # If in diagonal, score as normal (cell not in diagonal all have score = 0)
                     vals = [
                         # seq2[y-1], seq1[x-1] as matrix has empty row & col at start
@@ -477,6 +481,9 @@ class BandedSmithWaterman:
                 else:
                     # If cell doesn't lie in diagonal -> score = 0 (local alignment still)
                     self.cost_matrix[y][x] = 0
+                    # If flag = True, have passed over banded region and back into region outside of band -> can break
+                    if flag:
+                        break
 
         # Return max score and best local alignment chars + indices
         return [max_score, helper_functions.backtrack(self.backtrack_matrix, max_index, self.seq1, self.seq2)]
@@ -505,9 +512,6 @@ class FASTA:
 
         # Word length
         self.word_length = 3
-
-        # Merge distance
-        self.merge_distance = 2
 
         # Setup cost matrix
         self.cost_matrix = helper_functions.create_cost_matrix(seq1, seq2)
@@ -652,7 +656,7 @@ class FASTA:
         :param diagonals: dict of seeds along same diagonals.
         :return:
         """
-        to_return = math.ceil(len(diagonals) * 0.1)
+        to_return = math.ceil(len(diagonals) * 0.05)
         top_scores = []
 
         for diagonal_id in diagonals:
@@ -677,9 +681,10 @@ class FASTA:
         :return: results for FASTA
         """
         # --- 1) Calculate average distance between diagonals as banded region to search in --
+        # NB: Width selection can be done in multiple ways here:
+        # a) Avg distance between diagonals of best seeds (or word length^2 if only one seed)
         if len(best_seeds) == 1:
-            print("Only 1 Seed found. Setting banded region = word length.")
-            avg_width = self.word_length
+            w1 = self.word_length ** 2
         else:
             avg_width = []
             for i in range(len(best_seeds)-1):
@@ -687,14 +692,20 @@ class FASTA:
                 for j in range(i+1, len(best_seeds)):
                     j_diag = best_seeds[j][0][0] - best_seeds[j][1][0]
                     avg_width.append(abs(i_diag - j_diag))
-            avg_width = round(sum(avg_width)/len(avg_width))
-        # print("Average Distance between best scoring seeds (diagonally) {0}".format(avg_width))
+            w1 = math.ceil(sum(avg_width)/len(avg_width))
+        # b) Some fixed value (can lead to O(n^2) with len(seqs) << value
+        # w2 = 20
+        # c) % of minimum sequence length (will always ensure < O(n^2))
+        w3 = math.ceil(min([len(self.seq1), len(self.seq2)]) * 0.95)
+        # Current Policy: take max of a) & c) for width to use
+        # c) works best when len(a) ~= len(b) && a) works best when len(a) !~= len(b)
+        width = max(w1, w3)
 
         # --- 2) Run BandedSmithWaterman on each pair using the found average distance between diagonals ---
         max_score = -float('inf')
         best_results = None
         for seed in best_seeds:
-            BSW = BandedSmithWaterman(self.seq1, self.seq2, self.scoring_matrix, self.alphabet, avg_width, seed)
+            BSW = BandedSmithWaterman(self.seq1, self.seq2, self.scoring_matrix, self.alphabet, width, seed)
             results = BSW.align()
             # print("Input Seed {0} | Output - {1}".format(seed, results))
             if results[0] > max_score:
@@ -704,9 +715,6 @@ class FASTA:
         return best_results
 
     def align(self):
-        # TODO: what happens if cant find a single seed between 2 strings?
-        # (ref. above) best local alignment is then best match of non-matching chars
-
         # --- 1) Seed sequences - find word sequences the sequences have in common ---
         seeds = []
         while not seeds:
@@ -714,7 +722,7 @@ class FASTA:
             if not seeds:
                 self.word_length -= 1
                 if self.word_length == 0:
-                    print("Sequences contain NO matching characters!!")
+                    print("Sequences contain NO matching characters! Cannot seed!")
                     return [0, [[], [], [], []]]
         # print("Seeds: {0}".format(seeds))
 
@@ -735,28 +743,27 @@ class FASTA:
 def dynprog(alphabet, scoring_matrix, sequence1, sequence2):
     SW = SmithWaterman(sequence1, sequence2, scoring_matrix, alphabet)
     results = SW.align()
-    return results[0], results[1][0], results[1][1], results[1][2], results[1][3]
+    return results[0], results[1][0], results[1][1]
 
 
 def dynproglin(alphabet, scoring_matrix, sequence1, sequence2):
     HB = Hirschberg(sequence1, sequence2, scoring_matrix, alphabet)
     results = HB.run()
-    return results[0], results[1], results[2], results[3], results[4]
+    return results[0], results[1], results[2]
 
 
 def heuralign(alphabet, scoring_matrix, sequence1, sequence2):
     FA = FASTA(sequence1, sequence2, scoring_matrix, alphabet)
     results = FA.align()
-    return results[0], results[1][0], results[1][1], results[1][2], results[1][3]
-
+    return results[0], results[1][0], results[1][1]
 
 
 if __name__ == "__main__":
-    # Debug input 1
-    alphabet = "ABC"
-    scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
-    sequence1 = "AABBAACA"
-    sequence2 = "CBACCCBA"
+    # # Debug input 1
+    # alphabet = "ABC"
+    # scoring_matrix = [[1, -1, -2, -1], [-1, 2, -4, -1], [-2, -4, 3, -2], [-1, -1, -2, 0]]
+    # sequence1 = "AABBAACA"
+    # sequence2 = "CBACCCBA"
     # # Debug input 2
     # alphabet = "ABCD"
     # scoring_matrix = [
@@ -767,16 +774,16 @@ if __name__ == "__main__":
     #         [-1,-1,-4,-4,-9]]
     # sequence1 = "AAAAACCDDCCDDAAAAACC"
     # sequence2 = "CCAAADDAAAACCAAADDCCAAAA"
-    # # Debug input 3
-    # alphabet = "ABCD"
-    # scoring_matrix = [
-    #         [ 1,-5,-5,-5,-1],
-    #         [-5, 1,-5,-5,-1],
-    #         [-5,-5, 5,-5,-4],
-    #         [-5,-5,-5, 6,-4],
-    #         [-1,-1,-4,-4,-9]]
-    # sequence1 = "AACAAADAAAACAADAADAAA"
-    # sequence2 = "CDCDDD"
+    # Debug input 3
+    alphabet = "ABCD"
+    scoring_matrix = [
+            [ 1,-5,-5,-5,-1],
+            [-5, 1,-5,-5,-1],
+            [-5,-5, 5,-5,-4],
+            [-5,-5,-5, 6,-4],
+            [-1,-1,-4,-4,-9]]
+    sequence1 = "AACAAADAAAACAADAADAAA"
+    sequence2 = "CDCDDD"
     # # Debug input 4
     # alphabet = "ABCD"
     # scoring_matrix = [
@@ -795,24 +802,22 @@ if __name__ == "__main__":
     print("Seq 2 - {0}".format(sequence2))
     print("------------")
 
-
-    # TODO: improve runtime of scoring by using dicts!
-
     # Part 1 - O(n^2) dynamic prog. (time + space)
-    # score, out1_indices, out2_indices, out1_chars, out2_chars = dynprog(alphabet, scoring_matrix, sequence1, sequence2)
+    # score, out1_indices, out2_indices = dynprog(alphabet, scoring_matrix, sequence1, sequence2)
 
     # Debug - O(n^2) dynamic prog. (time + space) -> [GLOBAL alignment]
     # NW = NeedlemanWunsch(sequence1, sequence2, scoring_matrix, alphabet)
     # results = NW.align()
-    # score, out1_indices, out2_indices, out1_chars, out2_chars = results[0], results[1][0], results[1][1], results[1][2], results[1][3]
+    # score, out1_indices, out2_indices = results[0], results[1][0], results[1][1], results[1][2], results[1][3]
 
     # Part 2 - O(n) dynamic prog. (space)
-    score, out1_indices, out2_indices, out1_chars, out2_chars = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
+    # score, out1_indices, out2_indices = dynproglin(alphabet, scoring_matrix, sequence1, sequence2)
 
     #  Part 3 - < O(n^2) heuristic procedure, similar to FASTA and BLAST (time)
-    # score, out1_indices, out2_indices, out1_chars, out2_chars = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
+    score, out1_indices, out2_indices, = heuralign(alphabet, scoring_matrix, sequence1, sequence2)
 
     # Output - print results
-    print("------------")
     print("Score: {0}".format(score))
     print("Indices: {0} | {1}".format(out1_indices, out2_indices))
+    # print([sequence1[x] for x in out1_indices])
+    # print([sequence2[x] for x in out2_indices])
