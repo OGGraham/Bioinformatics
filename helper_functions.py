@@ -16,46 +16,50 @@ def matrix_setup(cost_matrix, local, scoring_matrix=None, alphabet=None, seq1=No
     :param local: bool, whether local alignment or not
     :return: n x m scoring matrix & n x m backtrack matrix (both w/ first row & col initialized)
     """
+    # Scoring function
+    def score(a, b):
+        # Get index in scoring matrix for chars a & b
+        if a == '-':
+            a_index = len(scoring_matrix[0]) - 1
+        else:
+            a_index = alphabet.index(a)
+        if b == '-':
+            b_index = len(scoring_matrix) - 1
+        else:
+            b_index = alphabet.index(b)
+        return scoring_matrix[b_index][a_index]
+
     # --- 1) Create backtrack matrix & initialize -> len + 1 as top left is blank ---
     backtrack_matrix = [[None for _ in range(len(cost_matrix[0]))] for _ in range(len(cost_matrix))]
-    backtrack_matrix[0] = ['L' for _ in range(len(backtrack_matrix[0]))]
-    for i in range(len(backtrack_matrix)):
-        backtrack_matrix[i][0] = 'U'
-    # Set 0,0 to None (always terminate here)
-    backtrack_matrix[0][0] = None
 
     # --- 2) Initialize values in cost matrix ---
-    # If local alignment, init cost_matrix vals = 0
+    # 0,0 has score set to 0
+    cost_matrix[0][0] = 0
+
+    # If local alignment, init cost_matrix vals = max(0, score)
     if local:
-        # TODO: do we need to init the cells to max(0, score(a,b)) rather than just 0?
-        # Init first row & cols of matrices to 0
-        cost_matrix[0] = [0 for _ in range(len(cost_matrix[0]))]
-        for i in range(len(cost_matrix)):
-            cost_matrix[i][0] = 0
+        # Init first row and col of cost matrix using score function
+        for i in range(len(seq1)):  # init 1st row
+            cost_matrix[0][i + 1] = max(0, cost_matrix[0][i] + score(seq1[i], '-'))
 
-    # If global, init cost matrix values using scoring matrix
+        for i in range(len(seq2)):  # init 1st col
+            cost_matrix[i + 1][0] = max(0, cost_matrix[i][0] + score(seq2[i], '-'))
+
+    # If global, init cost matrix values using scoring matrix & backtrack values
     else:
-        # Scoring function
-        def score(a, b):
-            # Get index in scoring matrix for chars a & b
-            if a == '-':
-                a_index = len(scoring_matrix[0]) - 1
-            else:
-                a_index = alphabet.index(a)
-            if b == '-':
-                b_index = len(scoring_matrix) - 1
-            else:
-                b_index = alphabet.index(b)
-            return scoring_matrix[b_index][a_index]
-
-        # 0,0 has score set to 0
-        cost_matrix[0][0] = 0
         # Init first row and col of cost matrix using score function
         for i in range(len(seq1)):  # init 1st row
             cost_matrix[0][i+1] = cost_matrix[0][i] + score(seq1[i], '-')
 
         for i in range(len(seq2)):  # init 1st col
             cost_matrix[i+1][0] = cost_matrix[i][0] + score(seq2[i], '-')
+
+        # Init backtrack matrix appropriately for global alignment
+        backtrack_matrix[0] = ['L' for _ in range(len(backtrack_matrix[0]))]
+        for i in range(len(backtrack_matrix)):
+            backtrack_matrix[i][0] = 'U'
+        # Set 0,0 to None (always terminate here)
+        backtrack_matrix[0][0] = None
 
     return cost_matrix, backtrack_matrix
 
