@@ -45,7 +45,11 @@ class SmithWaterman2:
         self.cost_matrix = helper_functions.create_cost_matrix(self.seq1, self.seq2)
 
         # Setup both backtrack and cost matrix initial values
-        self.cost_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.cost_matrix, local=True)
+        self.cost_matrix, self.backtrack_matrix = helper_functions.matrix_setup(self.cost_matrix, local=True,
+                                                                                scoring_matrix=self.scoring_matrix_1,
+                                                                                alphabet=self.alphabet,
+                                                                                seq1=self.seq1,
+                                                                                seq2=self.seq2)
 
     # Setup cost matrices for subsequence scoring
     def scoring_matricies_setup(self, scoring_matrix, alphabet):
